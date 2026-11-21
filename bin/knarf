@@ -1,0 +1,4 @@
+#!/usr/bin/env bash
+# Start the knarf talking window.
+HERE="$(cd "$(dirname "$(readlink -f "$0")")/.." && pwd)"
+exec "$HOME/.local/share/piper/venv/bin/python" "$HERE/knarf.py" "$@"

@@ -1,0 +1,21 @@
+#!/usr/bin/env bash
+# Make knarf speak.
+#   talk "Hello there"      queue text and return immediately
+#   echo hi | talk          read text from stdin
+#   talk -w "text"          wait until it has been spoken
+#   talk --stop             stop speaking and clear the queue
+#   talk --status           is knarf running / speaking?
+# If the knarf window isn't running, falls back to the plain `say` script.
+URL="http://127.0.0.1:${KNARF_PORT:-47820}"
+WAIT=0
+case "$1" in
+  --stop)   exec curl -fsS -X POST "$URL/stop" >/dev/null ;;
+  --status) curl -fsS "$URL/status" && echo || { echo "knarf not running"; exit 1; }; exit 0 ;;
+  -w|--wait) WAIT=1; shift ;;
+esac
+if [ $# -gt 0 ]; then TEXT="$*"; else TEXT="$(cat)"; fi
+[ -z "${TEXT// }" ] && exit 0
+if ! printf '%s' "$TEXT" | curl -fsS -X POST --data-binary @- "$URL/say?wait=$WAIT" >/dev/null 2>&1; then
+  echo "talk: knarf not running, using say" >&2
+  exec "$HOME/.local/share/piper/say" "$TEXT"
+fi
