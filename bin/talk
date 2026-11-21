@@ -5,11 +5,14 @@
 #   talk -w "text"          wait until it has been spoken
 #   talk --stop             stop speaking and clear the queue
 #   talk --status           is knarf running / speaking?
+#   talk --listen           listen to the mic and type what you say into the focused window
+#                           (run again while listening to stop early)
 # If the knarf window isn't running, falls back to the plain `say` script.
 URL="http://127.0.0.1:${KNARF_PORT:-47820}"
 WAIT=0
 case "$1" in
   --stop)   exec curl -fsS -X POST "$URL/stop" >/dev/null ;;
+  --listen) exec curl -fsS -X POST "$URL/listen" >/dev/null ;;
   --status) curl -fsS "$URL/status" && echo || { echo "knarf not running"; exit 1; }; exit 0 ;;
   -w|--wait) WAIT=1; shift ;;
 esac
