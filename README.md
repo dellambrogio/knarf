@@ -2,9 +2,11 @@
 
 A little window that talks: a single green circle on black that glows with the voice.
 
-    ./install.sh        # links `knarf` and `talk` into ~/.local/bin and adds a desktop launcher
-    knarf &             # start the window
+    just install        # deps (piper-tts, faster-whisper), voice, `knarf` + `talk` in ~/.local/bin, launcher
+    just sway-bind      # optional: Super+\ = push-to-talk in sway
+    knarf &             # start the window (or: just run)
     talk "Hello there"  # make it speak (also: echo hi | talk, talk -w, talk --stop, talk --status)
+    talk --toggle       # open the window, or close it if open (talk --quit closes it)
 
 In the window: Esc stops speaking, Ctrl+Q quits.
 
@@ -20,3 +22,9 @@ whether to press Enter after typing. Changes apply immediately and are saved to 
 Requires Piper in `~/.local/share/piper` (its venv provides numpy, piper-tts and faster-whisper), `pw-play`,
 `arecord` and `wtype`.
 Environment: `KNARF_SPEED` (Piper length scale at 100% speed, default 1.3), `KNARF_PORT` (default 47820), `KNARF_MODEL`.
+
+`just uninstall` removes the commands, launcher and sway binding (Piper, models and settings are kept).
+
+Status bar: the waybar module `custom/knarf` (in dotfiles, `~/.config/waybar/scripts/knarf.py`) shows knarf's state
+(off, ready, speaking, listening, transcribing). Click opens/closes the window, right-click listens, middle-click stops
+talking. In sway the window floats small in the bottom-right corner.

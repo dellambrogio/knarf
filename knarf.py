@@ -9,6 +9,7 @@ faster-whisper and types the text into the focused window with wtype.
     POST http://127.0.0.1:47820/say      body = text   (?wait=1 to block until spoken)
     POST http://127.0.0.1:47820/stop     stop speaking and clear the queue
     POST http://127.0.0.1:47820/listen   start listening (or stop, if already listening)
+    POST http://127.0.0.1:47820/quit     close the window
     GET  http://127.0.0.1:47820/status
 """
 
@@ -37,6 +38,7 @@ PORT = int(os.environ.get("KNARF_PORT", "47820"))
 BASE_LENGTH = float(os.environ.get("KNARF_SPEED", os.environ.get("SAY_SPEED", "1.3")))  # piper length scale at 100% speed
 PLAYER_LATENCY = 0.06  # rough pw-play startup latency, keeps visuals in sync
 CONFIG = os.path.expanduser("~/.config/knarf/settings.json")
+QUIT = threading.Event()
 
 BG = "#000000"
 COLORS = {
@@ -244,7 +246,7 @@ class Listener:
                 return
             self.state = "thinking"
             lang = self.st["language"]
-            segs, _ = self._model().transcribe(audio, beam_size=1,
+            segs, _ = self._model().transcribe(audio, beam_size=1, vad_filter=True,
                                                language=None if lang == "auto" else lang)
             text = " ".join(seg.text.strip() for seg in segs).strip()
             if text:
@@ -288,7 +290,7 @@ class Listener:
         finally:
             proc.terminate()
             proc.wait()
-        if not started and not self.stop_flag:
+        if not started:  # nothing but silence: don't let whisper invent text
             return None
         return np.concatenate(frames) if frames else None
 
@@ -337,6 +339,9 @@ def make_server(speaker, listener):
                 self._reply(200, {"ok": True, "listening": listener.state})
             elif u.path == "/stop":
                 speaker.stop()
+                self._reply(200, {"ok": True})
+            elif u.path == "/quit":
+                QUIT.set()
                 self._reply(200, {"ok": True})
             else:
                 self._reply(404, {"ok": False})
@@ -441,6 +446,9 @@ class App:
         self.mic += (self.ls.level - self.mic) * 0.35
         while not self.inbox.empty():
             self._deliver(self.inbox.get_nowait())
+        if QUIT.is_set():
+            self.root.destroy()
+            return
         self._draw(time.monotonic() - self.t0)
         self.root.after(16, self._tick)
 
@@ -646,7 +654,7 @@ def main():
         speaker = Speaker(settings)
     except Exception as e:
         raise SystemExit(f"knarf: could not load voice {settings.voice_path()}: {e}")
-    root = tk.Tk()
+    root = tk.Tk(className="knarf")  # WM class, so sway can match the window
     app = App(root, speaker, settings)
     try:
         server = make_server(speaker, app.ls)
@@ -660,6 +668,7 @@ def main():
     finally:
         speaker.stop()
         server.shutdown()
+        server.server_close()
 
 
 if __name__ == "__main__":

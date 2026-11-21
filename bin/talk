@@ -5,6 +5,8 @@
 #   talk -w "text"          wait until it has been spoken
 #   talk --stop             stop speaking and clear the queue
 #   talk --status           is knarf running / speaking?
+#   talk --toggle           start the knarf window, or close it if it's running
+#   talk --quit             close the knarf window
 #   talk --listen           listen to the mic and type what you say into the focused window
 #                           (run again while listening to stop early)
 # If the knarf window isn't running, falls back to the plain `say` script.
@@ -13,6 +15,10 @@ WAIT=0
 case "$1" in
   --stop)   exec curl -fsS -X POST "$URL/stop" >/dev/null ;;
   --listen) exec curl -fsS -X POST "$URL/listen" >/dev/null ;;
+  --quit)   exec curl -fsS -X POST "$URL/quit" >/dev/null ;;
+  --toggle)
+    if curl -fsS -m 1 "$URL/status" >/dev/null 2>&1; then exec curl -fsS -X POST "$URL/quit" >/dev/null
+    else setsid -f "$HOME/.local/bin/knarf" >/dev/null 2>&1; exit 0; fi ;;
   --status) curl -fsS "$URL/status" && echo || { echo "knarf not running"; exit 1; }; exit 0 ;;
   -w|--wait) WAIT=1; shift ;;
 esac
