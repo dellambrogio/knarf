@@ -112,6 +112,12 @@ run:
 screenshots:
     PYTHONPATH={{justfile_directory()}} {{venv}}/bin/python {{justfile_directory()}}/apps/screenshots.py
 
+# make docs/demo.mp4 (with sound) and docs/demo.webp (silent preview for the README)
+demo:
+    PYTHONPATH={{justfile_directory()}} {{venv}}/bin/python {{justfile_directory()}}/apps/demo.py
+    ffmpeg -loglevel error -y -i {{justfile_directory()}}/docs/demo.mp4 -vf "fps=15,scale=360:-1:flags=lanczos" \
+        -c:v libwebp_anim -loop 0 -quality 70 -compression_level 6 {{justfile_directory()}}/docs/demo.webp
+
 # say something through the running window
 say *text:
     {{justfile_directory()}}/bin/talk {{quote(text)}}

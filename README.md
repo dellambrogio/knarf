@@ -7,6 +7,11 @@ borderless, so only the green shows.
 
 ![The settings window](docs/settings.png)
 
+[![knarf speaks, listens to a question, transcribes and answers](docs/demo.webp)](docs/demo.mp4)
+
+<sub>Silent preview. With sound: [docs/demo.mp4](docs/demo.mp4) (made from the real voice and drawing code by
+`just demo`).</sub>
+
     just install        # deps, voice, `knarf` + `talk` in ~/.local/bin, launcher, and the systemd user service
     just sway-bind      # optional: Super+\ = push-to-talk in sway
     just logs           # follow the service log (just restart after code changes)
