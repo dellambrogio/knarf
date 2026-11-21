@@ -22,7 +22,7 @@ COLORS = {
 }
 DEFAULTS = {
     "speed": 100,      # percent
-    "volume": 100,     # percent
+    "volume": 100,     # percent of full level: the voice is evened out and its peaks brought to this
     "pause": 0.35,     # seconds between sentences
     "voice": os.path.basename(MODEL),
     "color": "green",
@@ -33,10 +33,20 @@ DEFAULTS = {
     "stt_model": "small", # whisper model size
     "silence": 1.2,       # seconds of silence that end a recording
     "send_enter": False,  # press Enter after typing the transcript
+    "noise_suppression": True,  # record through the knarf mic (`just audio-setup`) when it's there
 }
 LANGUAGES = ["auto", "en", "it", "de", "fr", "es"]
 STT_MODELS = ["tiny", "base", "small", "medium"]
-MIC_RATE = 16000
+
+# Telling talking from noise (hektor's tuning; see knarf/listener.py)
+SPEECH_RUN = 3       # talking = this many of the last SPEECH_RUN + 2 chunks (100 ms) loud and voiced
+VOICED = 0.6         # how voiced (0-1) a chunk must be: vowels ~0.6-1; fans, hiss, key clicks, thumps ~0.2-0.45
+NOISE_FACTOR = 2.5   # loud = over the background noise x this
+MIN_RMS = 15         # lowest speech threshold, for very quiet rooms
+SILENCE_SHARE = 0.2  # quiet = under this share of your speech's typical loudness (or the threshold)
+NO_SPEECH = 8        # seconds: give up if nothing is said
+MAX_LEN = 120        # seconds: longest recording
+MIC_HIGHPASS = 300   # Hz, cuts hum and fan noise below it; 0 = off
 
 
 def voices():

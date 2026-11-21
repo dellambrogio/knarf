@@ -13,13 +13,22 @@ It can also listen: `talk --listen` (Super+\ in sway) records until silence, tra
 
 ## Layout
 
-- `knarf/`: the package. `config` (paths, constants, Settings), `speaker` (Piper TTS), `listener` (whisper STT),
+- `knarf/`: the package. `config` (paths, constants, Settings, listening tuning), `speaker` (Piper TTS, pipelined,
+  compressed), `listener` (hektor-style speech detection + whisper STT),
   `server` (HTTP API + events shared with the UI), `gtk` (GTK imports), `sway` (IPC helpers), `style` (CSS),
   `tray` (StatusNotifierItem + dbusmenu), `window` (the `Circle` window), `panel` (settings window).
 - `apps/gui.py`: the program; `bin/knarf` runs it with the Piper venv and `PYTHONPATH` set to the repo.
+- `apps/mcp_server.py` (`bin/knarf-mcp`): the MCP server for Claude Code (speak, listen, stop, status), stdlib only;
+  registered with `just mcp`.
+- `knarf/audio.py`: mic helpers ported from [hektor](https://github.com/dellambrogio/hektor)
+  (`app/hektor/audio_in.py`): voicing, high-pass,
+  mic picking, the PipeWire noise-suppressed "knarf mic" (`pipewire/`, `just audio-setup`).
 - `bin/talk`: the CLI client.
+
+knarf is only an extension to Claude Code: it speaks and listens for Claude, it never calls Claude itself.
 
 ## Talking
 
-When the user asks Claude to talk, use the user-level `talk` skill (`~/dotfiles/.claude/skills/talk/SKILL.md`,
-managed in dotfiles). Keep it in sync when `talk`'s options or knarf's behaviour change.
+Claude talks and listens through knarf's MCP tools (`speak`, `listen`, `stop`, `status`); how and when to use
+them is in `apps/mcp_server.py` (the server instructions and tool descriptions). Keep those in sync when knarf's
+behaviour changes. There is no skill for it.

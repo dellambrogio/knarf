@@ -1,4 +1,9 @@
-"""Text-to-speech: a worker thread that synthesizes queued text with Piper and plays it."""
+"""Text-to-speech: Piper → ffmpeg compressor → normalized → pw-play, a sentence at a time.
+
+Ported from hektor: the next sentence is made while the one before it plays, so the only gap is the
+pause setting; the voice is evened out (compressor) and its peaks brought to the volume setting so it
+carries on laptop speakers; markdown, links and URLs are never read out.
+"""
 
 import os
 import queue
@@ -14,9 +19,35 @@ from piper import PiperVoice, SynthesisConfig
 
 from .config import BASE_LENGTH, PLAYER_LATENCY
 
+# evens out loud and soft syllables so the voice carries on small speakers; then it's brought to full level
+COMPRESS = "acompressor=threshold=-26dB:ratio=4:attack=4:release=80:makeup=2"
+# the end of a sentence: . ! ? … (and closing quotes or brackets) before a space, or a line break
+SENTENCE_END = re.compile(r"[.!?…][\"')\]]*(?=\s)|\n")
+LINK = re.compile(r"\[([^\]]*)\]\([^)]*\)")  # [words](https://...): just the words
+URL = re.compile(r"\(?\b(?:https?://|www\.)\S+")
+MARKUP = re.compile(r"[*_#`>|]+")
+
+
+def speakable(text: str) -> str:
+    """What of `text` can be said aloud: no links or addresses, no markdown; "" if nothing's left."""
+    text = MARKUP.sub("", URL.sub("", LINK.sub(r"\1", text)))
+    text = " ".join(text.split()).strip(" -–—:;,")
+    return text if any(c.isalnum() for c in text) else ""
+
+
+def sentences(text: str) -> list[str]:
+    """`text` in sentences, each one speakable. "3.5" stays one number."""
+    out, start = [], 0
+    text = text + "\n"
+    for end in SENTENCE_END.finditer(text):
+        if s := speakable(text[start:end.end()]):
+            out.append(s)
+        start = end.end()
+    return out
+
 
 class Speaker:
-    """Background worker: synthesizes queued text and plays it sentence by sentence."""
+    """Background worker: speaks queued text, one utterance after another."""
 
     def __init__(self, settings):
         self.settings = settings
@@ -33,6 +64,8 @@ class Speaker:
         self.caption = ""
         self.busy = False
         threading.Thread(target=self._run, daemon=True).start()
+        # the first sentence shouldn't wait for piper and ffmpeg to warm up
+        threading.Thread(target=lambda: self._make("Hello."), daemon=True).start()
 
     def say(self, text, done=None):
         self.q.put((self.generation, text, done))
@@ -76,19 +109,48 @@ class Speaker:
         if st.voice_path() != self.voice_path:  # voice changed in settings
             self.voice_path = st.voice_path()
             self.voice = PiperVoice.load(self.voice_path)
-        for sentence in split_sentences(text):
-            cfg = SynthesisConfig(length_scale=BASE_LENGTH * 100 / max(10, st["speed"]),
-                                  volume=st["volume"] / 100)
-            for chunk in self.voice.synthesize(sentence, syn_config=cfg):
-                if gen != self.generation:
-                    return
-                self._play(gen, chunk, sentence)
-                if gen != self.generation:
-                    return
-                time.sleep(st["pause"])
+        ready = queue.Queue(maxsize=2)  # made sentences, waiting to be played
 
-    def _play(self, gen, chunk, caption):
-        audio = np.asarray(chunk.audio_float_array, dtype=np.float32)
+        def make():  # runs ahead of the playback, by up to two sentences
+            for sentence in sentences(text):
+                if gen != self.generation:
+                    break
+                ready.put((sentence, *self._make(sentence)))
+            ready.put(None)
+
+        threading.Thread(target=make, daemon=True).start()
+        first = True
+        while (item := ready.get()) is not None:
+            if gen != self.generation:
+                continue  # drain, so the maker isn't stuck on a full queue
+            sentence, audio, rate = item
+            if not first:
+                time.sleep(st["pause"])
+            first = False
+            self._play(gen, audio, rate, sentence)
+
+    def _make(self, sentence):
+        """`sentence` as float32 samples, compressed and normalized, and its sample rate."""
+        st = self.settings
+        cfg = SynthesisConfig(length_scale=BASE_LENGTH * 100 / max(10, st["speed"]))
+        pcm, rate = b"", self.voice.config.sample_rate
+        for chunk in self.voice.synthesize(sentence, syn_config=cfg):
+            pcm += chunk.audio_int16_bytes
+            rate = chunk.sample_rate
+        fmt = ["-f", "s16le", "-ar", str(rate), "-ac", "1"]
+        done = subprocess.run(["ffmpeg", "-loglevel", "error", *fmt, "-i", "-", "-af", COMPRESS, *fmt, "-"],
+                              input=pcm, capture_output=True)
+        if done.returncode == 0 and done.stdout:
+            pcm = done.stdout
+        else:
+            print("knarf: voice compressor failed, speaking without it", flush=True)
+        audio = np.frombuffer(pcm, np.int16).astype(np.float32) / 32768
+        peak = float(np.abs(audio).max()) if len(audio) else 0.0
+        if peak:  # loudest peak at the volume setting
+            audio = audio * (min(st["volume"], 100) / 100 * 0.97 / peak)
+        return audio, rate
+
+    def _play(self, gen, audio, rate, caption):
         pcm = (np.clip(audio, -1, 1) * 32767).astype("<i2").tobytes()
         fd, path = tempfile.mkstemp(suffix=".wav", prefix="knarf-")
         os.close(fd)
@@ -96,7 +158,7 @@ class Speaker:
             with wave.open(path, "wb") as w:
                 w.setnchannels(1)
                 w.setsampwidth(2)
-                w.setframerate(chunk.sample_rate)
+                w.setframerate(rate)
                 w.writeframes(pcm)
             with self.lock:
                 if gen != self.generation:
@@ -105,7 +167,7 @@ class Speaker:
                     ["pw-play", path], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
                 )
                 self.samples = audio
-                self.rate = chunk.sample_rate
+                self.rate = rate
                 self.started = time.monotonic() + PLAYER_LATENCY
                 self.caption = caption
             self.proc.wait()
@@ -113,9 +175,3 @@ class Speaker:
             os.unlink(path)
         with self.lock:
             self.samples = None
-
-
-def split_sentences(text):
-    text = " ".join(text.split())
-    parts = re.split(r"(?<=[.!?…])\s+", text)
-    return [p for p in parts if p.strip()]

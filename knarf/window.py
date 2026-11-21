@@ -175,7 +175,7 @@ class Circle:
         if not 0 <= pos < len(s):
             return 0.0
         win = s[max(0, pos - 400): pos + 400]
-        return min(1.0, float(np.sqrt(np.mean(win ** 2))) * 5.0) if len(win) else 0.0
+        return min(1.0, float(np.sqrt(np.mean(win ** 2))) * 3.0) if len(win) else 0.0
 
     def _tick(self, widget, clock):  # animation only; runs while the window is visible
         lvl = self._analyze()

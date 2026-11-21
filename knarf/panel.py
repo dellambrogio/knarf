@@ -59,7 +59,7 @@ class SettingsPanel:
             row += 1
 
         slider("speed", "Speed %", 50, 200, 5)
-        slider("volume", "Volume %", 0, 150, 5)
+        slider("volume", "Volume %", 0, 100, 5)
         slider("pause", "Pause between sentences (s)", 0, 1.5, 0.05, float)
         slider("size", "Circle size %", 40, 180, 5)
         choice("voice", "Voice", voices() or [st["voice"]])
@@ -67,6 +67,7 @@ class SettingsPanel:
         choice("stt_model", "Listen: model", STT_MODELS)
         slider("silence", "Listen: stop after silence (s)", 0.5, 3.0, 0.1, float)
         check("send_enter", "Listen: press Enter after typing")
+        check("noise_suppression", "Listen: noise suppression (knarf mic)")
 
         label("Colour")
         box = Gtk.Box(spacing=8)

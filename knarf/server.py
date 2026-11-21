@@ -2,7 +2,8 @@
 
     POST /say      body = text   (?wait=1 to block until spoken)
     POST /stop     stop speaking and clear the queue
-    POST /listen   start listening (or stop, if already listening)
+    POST /listen   start listening (or stop, if already listening); the text is typed into the focused window
+    POST /listen?wait=1   listen and return what was said ({"text": ...}) instead of typing it (MCP `listen`)
     POST /toggle   show or hide the circle (/show, /hide)
     POST /quit     quit knarf
     GET  /status
@@ -55,6 +56,13 @@ def make_server(speaker, listener):
                     done.wait()
                 self._reply(200, {"ok": True})
             elif u.path == "/listen":
+                q = parse_qs(u.query)
+                if q.get("wait", ["0"])[0] not in ("0", "", "false"):
+                    timeout = float(q.get("timeout", ["0"])[0]) or None
+                    text = listener.listen(timeout)
+                    if text is None:
+                        return self._reply(409, {"ok": False, "error": "already listening"})
+                    return self._reply(200, {"ok": True, "text": text})
                 listener.toggle()
                 self._reply(200, {"ok": True, "listening": listener.state})
             elif u.path == "/stop":

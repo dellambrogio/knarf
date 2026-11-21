@@ -1,0 +1,4 @@
+#!/usr/bin/env bash
+# knarf's MCP server for Claude Code (standard library only, so plain python3 will do).
+HERE="$(cd "$(dirname "$(readlink -f "$0")")/.." && pwd)"
+exec python3 "$HERE/apps/mcp_server.py" "$@"

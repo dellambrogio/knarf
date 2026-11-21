@@ -3,6 +3,10 @@
 A little window that talks: a single green circle that glows with the voice. The window is transparent and
 borderless, so only the green shows.
 
+![The circle: ready, speaking, listening, transcribing](docs/circle.png)
+
+![The settings window](docs/settings.png)
+
     just install        # deps, voice, `knarf` + `talk` in ~/.local/bin, launcher, and the systemd user service
     just sway-bind      # optional: Super+\ = push-to-talk in sway
     just logs           # follow the service log (just restart after code changes)
@@ -11,6 +15,111 @@ borderless, so only the green shows.
 
 In the window: click to listen, middle-click stops speaking, right-click or S opens settings, Esc stops speaking,
 Ctrl+Q quits.
+
+## Architecture
+
+knarf is one always-running process (a systemd user service) that owns the speaker, the mic, the circle and the
+tray icon. Everything else talks to it over a small HTTP API on `127.0.0.1:47820`: Claude Code through the MCP
+server, you through `talk` (a key binding, the terminal) or the tray icon. knarf is only an extension to Claude
+Code: it speaks and listens for Claude, it never calls Claude itself.
+
+```mermaid
+%%{init: {"theme": "base", "themeVariables": {"fontFamily": "monospace", "lineColor": "#22aa55", "edgeLabelBackground": "#000000", "textColor": "#33ff66", "fontSize": "14px"}}}%%
+flowchart LR
+    you((you))
+
+    subgraph clients["Clients"]
+        claude["Claude Code<br/>(any project)"]
+        mcp["knarf-mcp<br/>apps/mcp_server.py"]
+        talk["talk CLI<br/>bin/talk"]
+    end
+
+    subgraph knarf["knarf service: apps/gui.py (systemd user, always on)"]
+        api["HTTP API<br/>server.py"]
+        speaker["Speaker<br/>speaker.py"]
+        listener["Listener<br/>listener.py + audio.py"]
+        circle["Circle window<br/>window.py (GTK4, transparent)"]
+        tray["Tray icon<br/>tray.py"]
+        panel["Settings<br/>panel.py"]
+        settings[("settings.json<br/>config.py")]
+    end
+
+    subgraph desktop["Desktop"]
+        waybar["waybar tray"]
+        sway["sway"]
+        focused["focused window<br/>(e.g. Claude Code)"]
+        speakers["speakers"]
+        mic["mic"]
+    end
+
+    claude -- "MCP stdio: speak, listen, stop, status" --> mcp
+    mcp -- "HTTP" --> api
+    you -- "Super+\ / terminal" --> talk
+    talk -- "HTTP" --> api
+
+    api --> speaker
+    api --> listener
+    api --> circle
+    speaker -- "Piper, ffmpeg compressor, pw-play" --> speakers
+    mic -- "pw-record (via the noise-suppressed knarf mic, if set up)" --> listener
+    listener -- "dictation: text typed with wtype" --> focused
+    listener -- "listen tool: text returned" --> api
+    speaker -. "voice level" .-> circle
+    listener -. "mic level, state" .-> circle
+    circle --> tray
+    tray <-->|"D-Bus: StatusNotifierItem + menu"| waybar
+    circle -- "IPC: give focus back, centre settings" --> sway
+    circle --> panel
+    panel --> settings
+    settings -.-> speaker
+    settings -.-> listener
+
+    %% terminal green on black: brightest for knarf, dimmer for clients, dimmest for the desktop
+    classDef term fill:#0a0a0a,stroke:#22aa55,stroke-width:1px,color:#33ff66
+    classDef core fill:#0a0a0a,stroke:#33ff66,stroke-width:2px,color:#33ff66
+    classDef dim fill:#0a0a0a,stroke:#1a7a3e,stroke-width:1px,color:#2bd65a
+    classDef user fill:#33ff66,stroke:#33ff66,color:#000000
+    class claude,mcp,talk term
+    class api,speaker,listener,circle,tray,panel,settings core
+    class waybar,sway,focused,speakers,mic dim
+    class you user
+    style clients fill:#000000,stroke:#22aa55,color:#33ff66
+    style knarf fill:#000000,stroke:#33ff66,stroke-width:2px,color:#33ff66
+    style desktop fill:#000000,stroke:#1a7a3e,color:#2bd65a
+    linkStyle default stroke:#22aa55,stroke-width:1.5px
+```
+
+Inside the process: the GTK main loop runs the circle, tray and settings window; the speaker, each listening
+session and the HTTP server run on their own threads. They meet in a few thread-safe places: the speaker's queue,
+the listener's state, and the commands and events in `server.py` that the GTK loop polls every 50 ms. The circle is
+hidden most of the time: it pops up while knarf speaks or listens and hides again after, handing keyboard focus
+back to the window you were in (so dictation still types there).
+
+How Claude asks you something out loud:
+
+```mermaid
+%%{init: {"theme": "base", "themeVariables": {"fontFamily": "monospace", "actorBkg": "#0a0a0a", "actorBorder": "#33ff66", "actorTextColor": "#33ff66", "actorLineColor": "#1a7a3e", "signalColor": "#22aa55", "signalTextColor": "#22aa55", "noteBkgColor": "#000000", "noteBorderColor": "#33ff66", "noteTextColor": "#33ff66"}}}%%
+sequenceDiagram
+    participant C as Claude Code
+    participant M as knarf-mcp
+    participant K as knarf
+    actor U as you
+
+    C->>M: speak("Which branch should I use?", wait=true)
+    M->>K: POST /say?wait=1
+    K->>U: the voice, the circle pops up
+    K-->>M: spoken
+    M-->>C: "Spoken."
+    C->>M: listen()
+    M->>K: POST /listen?wait=1
+    U->>K: "the main one"
+    Note over K: records until you go quiet,<br/>keeps only the talking,<br/>transcribes with faster-whisper
+    K-->>M: {"text": "The main one."}
+    M-->>C: "The main one."
+```
+
+Dictation is the same listening, started by you (Super+\, a middle-click on the tray icon, or a click on the
+circle); the text is typed into the focused window instead of being returned.
 
 Listening (speech to text): press the global shortcut (`talk --listen`, bound to Super+\ in sway), or click the
 circle / press Space in the window. The circle turns into a ring while it listens, stops when you go quiet,
@@ -21,9 +130,11 @@ Settings: right-click the circle or press `S`.
 Speed, volume, pause between sentences, voice (any `.onnx` in `~/.local/share/piper`), colour,
 circle size, show on all workspaces (sway sticky), and for listening: language (default English), Whisper model, silence timeout and
 whether to press Enter after typing. Changes apply immediately and are saved to `~/.config/knarf/settings.json`.
-Requires Piper in `~/.local/share/piper` (its venv provides numpy, piper-tts and faster-whisper), `pw-play`,
-`arecord`, `wtype`, and GTK4 Python bindings from apt (python3-gi, python3-gi-cairo, gir1.2-gtk-4.0), which knarf
+Requires Piper in `~/.local/share/piper` (its venv provides numpy, piper-tts and faster-whisper), `pw-play`, `pw-record`, `ffmpeg`,
+`wtype`, and GTK4 Python bindings from apt (python3-gi, python3-gi-cairo, gir1.2-gtk-4.0), which knarf
 borrows from the system Python since PyGObject doesn't build in the venv without dev headers.
+Anything personal Claude should know when talking with you (an accent, names) goes in
+`~/.config/knarf/instructions.md`, outside the repo; the MCP server adds it to its instructions.
 Environment: `KNARF_SPEED` (Piper length scale at 100% speed, default 1.3), `KNARF_PORT` (default 47820), `KNARF_MODEL`.
 
 `just uninstall` removes the commands, launcher and sway binding (Piper, models and settings are kept).
@@ -38,3 +149,29 @@ the next login (or `systemctl --user start knarf`).
 
 Code: the `knarf/` package (config, speaker, listener, server, gtk, sway, style, tray, window, panel) and the
 program in `apps/gui.py`, started by `bin/knarf`.
+
+## For Claude Code (MCP)
+
+`just mcp` registers knarf's MCP server (`bin/knarf-mcp`, `apps/mcp_server.py`, standard library only) for all
+projects. Claude then has `speak` (text, wait), `listen` (returns what you said), `stop` and `status`; it starts
+knarf if it isn't running. knarf is only an extension to Claude Code: it never talks to Claude by itself.
+
+## Listening, in detail
+
+Ported from [hektor](https://github.com/dellambrogio/hektor): a 100 ms chunk counts as talking only when it's loud (over the room's noise x 2.5, measured
+in the first 0.3 s) and voiced (it has a pitch, which fans, hiss, key clicks and thumps don't), and you're talking
+when 3 of the last 5 chunks are. The recording ends after the silence setting without talking, measured against
+your own speech level. Only the talking, with 0.3 s either side, goes to Whisper (it makes up words in silence),
+and its noise tags like `[BLANK_AUDIO]` are dropped. The mic is picked like hektor does (a USB mic first; never
+Bluetooth earbuds in music mode, which record silence), with a 300 Hz high-pass filter. Tuning constants are in
+`knarf/config.py`; the journal (`just logs`) has each recording's length, noise and threshold.
+
+`just audio-setup` adds PipeWire's WebRTC noise suppression as a "knarf mic" (it restarts PipeWire, so audio stops
+for a moment); knarf records through it when it's there and the setting is on. `just audio-remove` takes it out.
+
+The voice: the next sentence is made while one plays, it's evened out with a compressor and its peaks brought to
+the volume setting, and markdown, links and URLs are never read out.
+
+## License
+
+MIT, see [LICENSE](LICENSE).

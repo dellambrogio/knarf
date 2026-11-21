@@ -8,13 +8,14 @@ voice     := "en_US-lessac-medium"
 voice_url := "https://huggingface.co/rhasspy/piper-voices/resolve/main/en/en_US/lessac/medium"
 sway_cfg  := env("HOME") / ".config/sway/config"
 unit_dir  := env("HOME") / ".config/systemd/user"
+pw_dir    := env("HOME") / ".config/pipewire/pipewire.conf.d"
 
 # list recipes
 default:
     @just --list
 
-# full install: dependencies, voice, commands, desktop launcher and the always-on service
-install: deps voice link desktop service
+# full install: dependencies, voice, commands, desktop launcher, the always-on service, Claude's tools
+install: deps voice link desktop service mcp
     @echo "installed. start with: knarf &   speak with: talk \"hello\"   listen with: talk --listen"
 
 # Python venv with piper-tts and faster-whisper (reuses the existing Piper venv)
@@ -63,6 +64,23 @@ service:
     systemctl --user daemon-reload
     systemctl --user enable --now knarf.service
 
+# give Claude Code knarf's tools (speak, listen, stop, status) in every project
+mcp:
+    -claude mcp remove --scope user knarf >/dev/null 2>&1
+    claude mcp add --scope user knarf -- {{justfile_directory()}}/bin/knarf-mcp
+
+# noise suppression for listening: adds the "knarf mic" to PipeWire (restarts PipeWire: audio stops a moment)
+audio-setup:
+    mkdir -p {{pw_dir}}
+    cp {{justfile_directory()}}/pipewire/knarf-echo-cancel.conf {{pw_dir}}/
+    systemctl --user restart pipewire pipewire-pulse wireplumber
+    @sleep 2; pw-cli ls Node | grep -q '"knarf_mic"' && echo "knarf mic: on" || echo "knarf mic: off"
+
+# take the knarf mic out of PipeWire again
+audio-remove:
+    rm -f {{pw_dir}}/knarf-echo-cancel.conf
+    systemctl --user restart pipewire pipewire-pulse wireplumber
+
 # restart the service (after changing the code)
 restart:
     systemctl --user restart knarf.service
@@ -78,6 +96,7 @@ sway-bind:
 
 # remove service, commands, launcher and sway binding (keeps Piper, models and settings)
 uninstall:
+    -claude mcp remove --scope user knarf
     -systemctl --user disable --now knarf.service
     rm -f {{unit_dir}}/knarf.service
     -systemctl --user daemon-reload
@@ -88,6 +107,10 @@ uninstall:
 # start the window
 run:
     {{justfile_directory()}}/bin/knarf
+
+# redraw docs/circle.png (the circle's four states) from the drawing code
+screenshots:
+    PYTHONPATH={{justfile_directory()}} {{venv}}/bin/python {{justfile_directory()}}/apps/screenshots.py
 
 # say something through the running window
 say *text:
