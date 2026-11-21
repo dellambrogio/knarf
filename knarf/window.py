@@ -14,7 +14,7 @@ from .gtk import Gdk, GLib, Gtk, cairo
 from .panel import SettingsPanel
 from .server import COMMANDS, QUIT, WINDOW_VISIBLE
 from .style import apply_css
-from .sway import sway_focus, sway_focused_id, sway_sticky
+from . import wm
 from .tray import Tray
 
 
@@ -30,6 +30,7 @@ class Circle:
         self.t0 = time.monotonic()
         self.panel = None
         self.waiting_text = None  # transcript held until focus leaves knarf
+        self.wm = wm.detect()     # placing, focus, sticky: asked of the window manager
         self.auto_shown = False   # the circle popped up by itself and should hide again
         self.idle_since = None
         gapp.hold()  # keep running while the window is hidden
@@ -61,13 +62,13 @@ class Circle:
         if self.win.get_visible():
             return
         # Popping up shouldn't steal the keyboard from what you're doing: hand focus back.
-        prev = sway_focused_id() if auto else None
+        prev = self.wm.focused_window() if auto else None
         self.win.present()
         WINDOW_VISIBLE.set()
         if prev is not None:
-            GLib.timeout_add(150, lambda: sway_focus(prev) and False)
+            GLib.timeout_add(150, lambda: self.wm.focus_window(prev) and False)
         if self.st["sticky"]:
-            GLib.timeout_add(200, lambda: sway_sticky(True) and False)
+            GLib.timeout_add(200, lambda: self.wm.set_sticky(True) and False)
 
     def hide_window(self):
         self.auto_shown = False

@@ -3,7 +3,6 @@
 from .config import COLORS, LANGUAGES, STT_MODELS, voices
 from .gtk import Gdk, GLib, Gtk
 from .style import apply_css
-from .sway import sway_center, sway_sticky
 
 
 class SettingsPanel:
@@ -85,7 +84,7 @@ class SettingsPanel:
         self._mark(st["color"])
 
         check("popup", "Pop up while speaking or listening")
-        check("sticky", "Show on all workspaces", sway_sticky)
+        check("sticky", "Show on all workspaces", circle.wm.set_sticky)
 
         bar = Gtk.Box(spacing=6, halign=Gtk.Align.END, margin_top=10)
         for text, fn in (("Reset", self._reset),
@@ -104,7 +103,7 @@ class SettingsPanel:
         grid = self.win.get_child()
         w = grid.measure(Gtk.Orientation.HORIZONTAL, -1)[1]
         h = grid.measure(Gtk.Orientation.VERTICAL, w)[1]
-        sway_center(self.win.get_title(), w, h)
+        self.circle.wm.center_window(self.win.get_title(), w, h)
         return False
 
     def _mark(self, name):
@@ -120,6 +119,6 @@ class SettingsPanel:
     def _reset(self):
         self.circle.st.reset()
         apply_css(self.circle.st["color"])
-        sway_sticky(bool(self.circle.st["sticky"]))
+        self.circle.wm.set_sticky(bool(self.circle.st["sticky"]))
         self.win.close()
         self.circle.panel = SettingsPanel(self.circle)

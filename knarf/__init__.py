@@ -10,7 +10,7 @@ Modules:
     listener  speech-to-text worker (arecord + faster-whisper)
     server    the local HTTP API and the events it shares with the UI
     gtk       GTK4 imports (borrowed from the system's python3-gi)
-    sway      small sway IPC helpers
+    wm        the window manager: placing windows, focus, sticky (base interface; sway, none)
     style     colours and CSS
     tray      the tray icon (StatusNotifierItem + dbusmenu)
     window    the circle window (Circle)

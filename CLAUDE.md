@@ -1,4 +1,4 @@
-# knarf
+# Knarf
 
 A transparent, borderless GTK4 window (native Wayland, app_id `knarf`) that speaks text with Piper (`~/.local/share/piper`, voice en_US-lessac-medium)
 and shows only a green circle that glows with the voice. It listens on http://127.0.0.1:47820. It runs
@@ -15,20 +15,21 @@ It can also listen: `talk --listen` (Super+\ in sway) records until silence, tra
 
 - `knarf/`: the package. `config` (paths, constants, Settings, listening tuning), `speaker` (Piper TTS, pipelined,
   compressed), `listener` (hektor-style speech detection + whisper STT),
-  `server` (HTTP API + events shared with the UI), `gtk` (GTK imports), `sway` (IPC helpers), `style` (CSS),
+  `server` (HTTP API + events shared with the UI), `gtk` (GTK imports), `wm/` (window manager: `base.py` is the
+  `WindowManager` interface, `sway.py` and `none.py` implement it, `detect()` picks one), `style` (CSS),
   `tray` (StatusNotifierItem + dbusmenu), `window` (the `Circle` window), `panel` (settings window).
 - `apps/gui.py`: the program; `bin/knarf` runs it with the Piper venv and `PYTHONPATH` set to the repo.
 - `apps/mcp_server.py` (`bin/knarf-mcp`): the MCP server for Claude Code (speak, listen, stop, status), stdlib only;
   registered with `just mcp`.
 - `knarf/audio.py`: mic helpers ported from [hektor](https://github.com/dellambrogio/hektor)
   (`app/hektor/audio_in.py`): voicing, high-pass,
-  mic picking, the PipeWire noise-suppressed "knarf mic" (`pipewire/`, `just audio-setup`).
+  mic picking, the PipeWire noise-suppressed "Knarf mic" (`pipewire/`, `just audio-setup`).
 - `bin/talk`: the CLI client.
 
-knarf is only an extension to Claude Code: it speaks and listens for Claude, it never calls Claude itself.
+Knarf is only an extension to Claude Code: it speaks and listens for Claude, it never calls Claude itself.
 
 ## Talking
 
-Claude talks and listens through knarf's MCP tools (`speak`, `listen`, `stop`, `status`); how and when to use
-them is in `apps/mcp_server.py` (the server instructions and tool descriptions). Keep those in sync when knarf's
+Claude talks and listens through Knarf's MCP tools (`speak`, `listen`, `stop`, `status`); how and when to use
+them is in `apps/mcp_server.py` (the server instructions and tool descriptions). Keep those in sync when Knarf's
 behaviour changes. There is no skill for it.
