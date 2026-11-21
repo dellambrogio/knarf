@@ -1,6 +1,6 @@
 """The settings window: every change applies immediately and is saved."""
 
-from .config import COLORS, LANGUAGES, STT_MODELS, voices
+from .config import COLORS, LANGUAGES, STT_MODELS, voice_label, voices
 from .gtk import Gdk, GLib, Gtk
 from .style import apply_css
 
@@ -40,10 +40,10 @@ class SettingsPanel:
             grid.attach(sc, 1, row, 1, 1)
             row += 1
 
-        def choice(key, text, options):
+        def choice(key, text, options, show=str):
             nonlocal row
             label(text)
-            dd = Gtk.DropDown.new_from_strings(options)
+            dd = Gtk.DropDown.new_from_strings([show(o) for o in options])
             dd.set_selected(options.index(st[key]) if st[key] in options else 0)
             dd.connect("notify::selected", lambda d, _p: st.set(key, options[d.get_selected()]))
             grid.attach(dd, 1, row, 1, 1)
@@ -61,7 +61,7 @@ class SettingsPanel:
         slider("volume", "Volume %", 0, 100, 5)
         slider("pause", "Pause between sentences (s)", 0, 1.5, 0.05, float)
         slider("size", "Circle size %", 40, 180, 5)
-        choice("voice", "Voice", voices() or [st["voice"]])
+        choice("voice", "Voice", sorted(voices(), key=voice_label) or [st["voice"]], voice_label)
         choice("language", "Listen: language", LANGUAGES)
         choice("stt_model", "Listen: model", STT_MODELS)
         slider("silence", "Listen: stop after silence (s)", 0.5, 3.0, 0.1, float)

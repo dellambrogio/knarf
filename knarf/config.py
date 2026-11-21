@@ -53,6 +53,23 @@ def voices():
     return sorted(os.path.basename(p) for p in glob.glob(os.path.join(PIPER_DIR, "*.onnx")))
 
 
+# Piper's voice files don't say whether a voice is male or female: the ones knarf offers (`just voices`)
+VOICE_GENDERS = {"lessac": "female", "amy": "female", "hfc_female": "female", "jenny_dioco": "female",
+                 "cori": "female", "ryan": "male", "joe": "male", "alan": "male", "hfc_male": "male"}
+VOICE_ACCENTS = {"en_US": "American", "en_GB": "British"}
+
+
+def voice_label(filename):
+    """en_GB-jenny_dioco-medium.onnx -> 'Jenny Dioco (British, female)'."""
+    try:
+        lang, speaker, quality = filename.removesuffix(".onnx").split("-")
+    except ValueError:
+        return filename
+    name = "HFC" if speaker.startswith("hfc_") else speaker.replace("_", " ").title()
+    details = [VOICE_ACCENTS.get(lang, lang), VOICE_GENDERS.get(speaker), "high quality" if quality == "high" else None]
+    return f"{name} ({', '.join(d for d in details if d)})"
+
+
 class Settings:
     """Small JSON-backed settings store in ~/.config/knarf/settings.json."""
 

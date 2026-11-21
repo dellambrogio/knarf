@@ -5,7 +5,6 @@ venv      := piper_dir / "venv"
 bin_dir   := env("HOME") / ".local/bin"
 apps_dir  := env("HOME") / ".local/share/applications"
 voice     := "en_US-lessac-medium"
-voice_url := "https://huggingface.co/rhasspy/piper-voices/resolve/main/en/en_US/lessac/medium"
 sway_cfg  := env("HOME") / ".config/sway/config"
 unit_dir  := env("HOME") / ".config/systemd/user"
 pw_dir    := env("HOME") / ".config/pipewire/pipewire.conf.d"
@@ -26,11 +25,22 @@ deps:
     @{{venv}}/bin/python -c 'import sys; sys.path.append("/usr/lib/python3/dist-packages"); import gi, cairo; gi.require_version("Gtk", "4.0")' 2>/dev/null \
         || echo "warning: GTK4 bindings missing: sudo apt install python3-gi python3-gi-cairo gir1.2-gtk-4.0"
 
-# download the Piper voice if missing
-voice:
+# download a Piper voice if missing (name like en_GB-alan-medium; see https://huggingface.co/rhasspy/piper-voices)
+voice name=voice:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    IFS=- read -r lang speaker quality <<< "{{name}}"
+    url="https://huggingface.co/rhasspy/piper-voices/resolve/main/${lang%%_*}/$lang/$speaker/$quality/{{name}}"
     mkdir -p {{piper_dir}}
-    test -f {{piper_dir}}/{{voice}}.onnx || curl -fL -o {{piper_dir}}/{{voice}}.onnx {{voice_url}}/{{voice}}.onnx
-    test -f {{piper_dir}}/{{voice}}.onnx.json || curl -fL -o {{piper_dir}}/{{voice}}.onnx.json {{voice_url}}/{{voice}}.onnx.json
+    for ext in onnx onnx.json; do
+        f={{piper_dir}}/{{name}}.$ext
+        test -f "$f" || { curl -fL -o "$f.part" "$url.$ext" && mv "$f.part" "$f"; }
+    done
+
+# download a selection of extra English voices (pick them in the settings window)
+voices:
+    for v in en_US-amy-medium en_US-ryan-high en_US-joe-medium en_US-hfc_female-medium \
+             en_GB-alan-medium en_GB-jenny_dioco-medium en_GB-cori-high; do just voice $v; done
 
 # link knarf and talk into ~/.local/bin
 link:
