@@ -18,8 +18,10 @@ URL = f"http://127.0.0.1:{os.environ.get('KNARF_PORT', '47820')}"
 
 INSTRUCTIONS = """knarf is the user's local voice extension: a speaker and a microphone on their desktop.
 Use `speak` when the user asks you to talk, say something out loud, read something aloud, or answer by voice.
-Use `listen` to hear the user's spoken answer, typically right after asking them a question with `speak`
-(wait=true). Transcripts may have small errors: read them charitably and ask again if something is unclear.
+Use `listen` to hear the user's spoken answer, typically right after asking them a question with `speak`:
+`listen` first waits for knarf to finish speaking, so `speak` doesn't need wait=true for that (and returning
+right away lets the user read the text while it's being said). Transcripts may have small errors: read them
+charitably and ask again if something is unclear.
 Keep giving your normal written answer too unless the user asked for voice only."""
 
 # Anything personal for Claude (an accent, names it should know, ...) goes in this private file, not the repo.
@@ -39,7 +41,8 @@ TOOLS = [
             "properties": {
                 "text": {"type": "string", "description": "What to say."},
                 "wait": {"type": "boolean", "default": False,
-                         "description": "Return only once it has been spoken (use before `listen`)."},
+                         "description": ("Return only once it has been spoken. Not needed before `listen`, "
+                                         "which waits for speaking to finish.")},
             },
             "required": ["text"],
         },
@@ -48,7 +51,8 @@ TOOLS = [
         "name": "listen",
         "description": ("Listen to the user through the microphone and return what they said, transcribed. "
                         "Recording ends when they go quiet; returns an empty result if they said nothing "
-                        "within about 8 seconds. Use it after asking a question with `speak` (wait=true)."),
+                        "within about 8 seconds. Use it after asking a question with `speak`: it waits for "
+                        "knarf to finish speaking before it starts recording."),
         "inputSchema": {
             "type": "object",
             "properties": {
@@ -106,6 +110,17 @@ def ensure_running() -> None:
     raise RuntimeError("knarf isn't running and didn't start (systemctl --user status knarf)")
 
 
+def wait_until_quiet(limit: float = 600) -> None:
+    """Wait for knarf to finish speaking (and its queue to empty), so listening doesn't hear it."""
+    end, quiet = time.monotonic() + limit, 0
+    while time.monotonic() < end:
+        s = call("GET", "/status", timeout=2)
+        quiet = quiet + 1 if not s.get("speaking") and not s.get("queued") else 0
+        if quiet >= 2:  # twice in a row: skips the instant between dequeuing a sentence and marking it busy
+            return
+        time.sleep(0.1)
+
+
 def run_tool(name: str, args: dict) -> str:
     ensure_running()
     if name == "speak":
@@ -117,6 +132,7 @@ def run_tool(name: str, args: dict) -> str:
         return "Spoken." if wait else "Speaking."
     if name == "listen":
         timeout = float(args.get("timeout") or 120)
+        wait_until_quiet()
         r = call("POST", f"/listen?wait=1&timeout={timeout}", b"", timeout=timeout + 15)
         if not r.get("ok"):
             raise RuntimeError(r.get("error", "listening failed"))
