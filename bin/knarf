@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
-# Start the knarf talking window.
+# Run knarf (apps/gui.py) from this checkout, with the Piper venv's Python.
 HERE="$(cd "$(dirname "$(readlink -f "$0")")/.." && pwd)"
-exec "$HOME/.local/share/piper/venv/bin/python" "$HERE/knarf.py" "$@"
+export PYTHONPATH="$HERE${PYTHONPATH:+:$PYTHONPATH}"
+exec "$HOME/.local/share/piper/venv/bin/python" "$HERE/apps/gui.py" "$@"
