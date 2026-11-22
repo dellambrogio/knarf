@@ -73,8 +73,9 @@ TRAY_TIPS = {"idle": "knarf is ready", "speaking": "knarf is speaking",
              "listening": "knarf is listening", "thinking": "knarf is transcribing"}
 
 
-def tray_pixmaps(state, rgb):
-    """Icon images for the tray, ARGB32 in network byte order, as the protocol wants."""
+def tray_pixmaps(state, rgb, style="circle"):
+    """Icon images for the tray, ARGB32 in network byte order, as the protocol wants. They follow the style
+    (a circle, or three bars); the colour says the state."""
     out = []
     for size in (22, 32, 48):
         surf = cairo.ImageSurface(cairo.FORMAT_ARGB32, size, size)
@@ -85,7 +86,16 @@ def tray_pixmaps(state, rgb):
             c = [1.0, 0.25, 0.2]  # mic is on: red, like a recording light
         elif state == "thinking":
             c = [1.0, 0.85, 0.1]
-        if state in ("idle", "speaking"):
+        if style == "bars":
+            # three bars, the middle one tallest; taller while speaking
+            heights = (0.62, 0.92, 0.62) if state == "speaking" else (0.42, 0.72, 0.42)
+            bw, gap = size * 0.2, size * 0.1
+            x0 = (size - 3 * bw - 2 * gap) / 2
+            cr.set_source_rgba(*c, 1)
+            for i, k in enumerate(heights):
+                cr.rectangle(x0 + i * (bw + gap), (size - size * k) / 2, bw, size * k)
+            cr.fill()
+        elif state in ("idle", "speaking"):
             if state == "speaking":
                 cr.set_source_rgba(*c, 0.35)
                 cr.arc(size / 2, size / 2, size * 0.48, 0, 2 * math.pi)
@@ -143,7 +153,7 @@ class Tray:
 
     def _sni_prop(self, bus, sender, path, iface, prop):
         rgb = COLORS[self.circle.st["color"]]
-        pix = tray_pixmaps(self.state, rgb)
+        pix = tray_pixmaps(self.state, rgb, self.circle.st["style"])
         return {
             "Category": GLib.Variant("s", "ApplicationStatus"),
             "Id": GLib.Variant("s", "knarf"),

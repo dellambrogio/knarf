@@ -28,7 +28,7 @@ DEFAULTS = {
     "voice": os.path.basename(MODEL),
     "color": "green",
     "size": 100,       # percent
-    "style": "circle", # how knarf looks: one of STYLES
+    "style": "bars",   # how knarf looks: one of STYLES
     "sticky": False,      # show on all workspaces (sway)
     "popup": True,        # show the circle while speaking or listening, hide it after
     "position": "center", # where the circle shows: one of POSITIONS
@@ -38,7 +38,7 @@ DEFAULTS = {
     "send_enter": False,  # press Enter after typing the transcript
     "noise_suppression": True,  # record through the knarf mic (`just audio-setup`) when it's there
 }
-STYLES = ["circle", "bars"]
+STYLES = ["bars", "circle"]
 POSITIONS = ["center", "top", "bottom", "top-left", "top-right", "bottom-left", "bottom-right"]
 LANGUAGES = ["auto", "en", "it", "de", "fr", "es"]
 STT_MODELS = ["tiny", "base", "small", "medium"]

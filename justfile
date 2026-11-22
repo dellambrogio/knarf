@@ -60,7 +60,7 @@ service:
     mkdir -p {{unit_dir}}
     printf '%s\n' \
         '[Unit]' \
-        'Description=knarf: talking circle with a tray icon (text-to-speech, speech-to-text)' \
+        'Description=knarf: talking window with a tray icon (text-to-speech, speech-to-text)' \
         'StartLimitIntervalSec=0' \
         '' \
         '[Service]' \
@@ -139,7 +139,7 @@ uninstall:
 run:
     {{justfile_directory()}}/bin/knarf
 
-# redraw docs/circle.png (the circle's four states) from the drawing code
+# redraw docs/states.png (the four states, a row per style) from the drawing code
 screenshots:
     PYTHONPATH={{justfile_directory()}} {{venv}}/bin/python {{justfile_directory()}}/apps/screenshots.py
 

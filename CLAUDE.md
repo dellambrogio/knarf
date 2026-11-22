@@ -1,10 +1,10 @@
 # Knarf
 
 A transparent, borderless GTK4 window (native Wayland, app_id `knarf`) that speaks text with Piper (`~/.local/share/piper`, voice en_US-lessac-medium)
-and shows only a green circle that glows with the voice. It listens on http://127.0.0.1:47820. It runs
-all the time as the systemd user service `knarf.service` (tray icon via StatusNotifierItem; circle pops up while
+and shows only green lights that move with the voice (three bars, or a circle: the `style` setting). It listens on http://127.0.0.1:47820. It runs
+all the time as the systemd user service `knarf.service` (tray icon via StatusNotifierItem; the window pops up while
 speaking/listening). After changing the code: `just restart`.
-User settings (speed, volume, voice, colour, size, sticky) live in `~/.config/knarf/settings.json`; edit them in the
+User settings (speed, volume, voice, colour, style, size, position, sticky) live in `~/.config/knarf/settings.json`; edit them in the
 window (right-click or `S`). GTK comes from the system's python3-gi (see `knarf/gtk.py`), the rest from the
 Piper venv.
 
