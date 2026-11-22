@@ -141,7 +141,7 @@ whether to press Enter after typing. Changes apply immediately and are saved to 
 Requires Piper in `~/.local/share/piper` (its venv provides numpy, piper-tts and faster-whisper), `pw-play`, `pw-record`, `ffmpeg`,
 `wtype`, and GTK4 Python bindings from apt (python3-gi, python3-gi-cairo, gir1.2-gtk-4.0), which Knarf
 borrows from the system Python since PyGObject doesn't build in the venv without dev headers.
-Anything personal Claude should know when talking with you (an accent, names) goes in
+Extra instructions for Claude (anything it should know when talking with you) go in
 `~/.config/knarf/instructions.md`, outside the repo; the MCP server adds it to its instructions.
 Environment: `KNARF_SPEED` (Piper length scale at 100% speed, default 1.3), `KNARF_PORT` (default 47820), `KNARF_MODEL`.
 

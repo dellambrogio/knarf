@@ -20,5 +20,5 @@ merge the `hooks` block of `settings.json` into `~/.claude/settings.json`.
 
 Then start a new Claude Code session. Type `/knarf` to start talking, or `/knarf <what to start with>`.
 
-Anything personal Claude should know when listening to you (an accent, names it'll mishear) goes in
+Anything Claude should know when listening to you goes in
 `~/.config/knarf/instructions.md`, not in the skill.

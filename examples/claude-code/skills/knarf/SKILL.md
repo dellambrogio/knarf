@@ -31,7 +31,7 @@ If `$ARGUMENTS` is given, start with that. Otherwise say a short hello and ask w
 
 ## Transcripts
 
-- Speech-to-text mishears names and technical words, more so with an accent. Read transcripts charitably. If a misheard word changes what you'd do, ask them to repeat it, or to type it if it's
+- Speech-to-text mishears names and technical words. Read transcripts charitably. If a misheard word changes what you'd do, ask them to repeat it, or to type it if it's
   a name, a path, code or a number.
 - `listen` returns when they pause, so one thought can arrive in pieces. If a transcript is clearly unfinished
   (cut mid-sentence), `listen` again before acting.

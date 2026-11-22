@@ -24,7 +24,7 @@ right away lets the user read the text while it's being said). Transcripts may h
 charitably and ask again if something is unclear.
 Keep giving your normal written answer too unless the user asked for voice only."""
 
-# Anything personal for Claude (an accent, names it should know, ...) goes in this private file, not the repo.
+# Extra instructions for Claude go in this private file, outside the repo.
 PRIVATE = os.path.expanduser("~/.config/knarf/instructions.md")
 
 SPEAK_HOW = ("Write for the ear: plain spoken sentences, no markdown, bullets, code, file paths, URLs or tables "
