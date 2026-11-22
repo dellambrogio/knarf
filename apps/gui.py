@@ -9,7 +9,7 @@ import queue
 import threading
 
 from knarf.config import HOST, PORT, Settings
-from knarf.gtk import Gio, GLib, Gtk
+from knarf.gtk import Gdk, Gio, GLib, Gtk
 from knarf.listener import Listener
 from knarf.server import make_server
 from knarf.speaker import Speaker
@@ -17,6 +17,11 @@ from knarf.window import Circle
 
 
 def main():
+    # At login systemd can start us before sway has exported WAYLAND_DISPLAY. Without a display
+    # GTK still runs but the window fails, so exit and let Restart=on-failure try again.
+    Gtk.init_check()
+    if Gdk.Display.get_default() is None:
+        raise SystemExit("knarf: no display yet")
     settings = Settings()
     try:
         speaker = Speaker(settings)
