@@ -61,6 +61,7 @@ class SettingsPanel:
         slider("volume", "Volume %", 0, 100, 5)
         slider("pause", "Pause between sentences (s)", 0, 1.5, 0.05, float)
         slider("size", "Circle size %", 40, 180, 5)
+        slider("caption_hold", "Text stays after speaking (s)", 0, 10, 0.5, float)
         choice("voice", "Voice", sorted(voices(), key=voice_label) or [st["voice"]], voice_label)
         choice("language", "Listen: language", LANGUAGES)
         choice("stt_model", "Listen: model", STT_MODELS)

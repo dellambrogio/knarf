@@ -24,6 +24,7 @@ DEFAULTS = {
     "speed": 100,      # percent
     "volume": 100,     # percent of full level: the voice is evened out and its peaks brought to this
     "pause": 0.35,     # seconds between sentences
+    "caption_hold": 3.0,  # seconds the last spoken sentence stays under the circle
     "voice": os.path.basename(MODEL),
     "color": "green",
     "size": 100,       # percent

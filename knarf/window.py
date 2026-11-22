@@ -33,6 +33,7 @@ class Circle:
         self.wm = wm.detect()     # placing, focus, sticky: asked of the window manager
         self.auto_shown = False   # the circle popped up by itself and should hide again
         self.idle_since = None
+        self.caption, self.caption_until = "", 0.0  # what's shown under the circle, and until when
         gapp.hold()  # keep running while the window is hidden
 
         apply_css(self.st["color"])
@@ -105,7 +106,7 @@ class Circle:
         elif self.auto_shown:
             now = time.monotonic()
             self.idle_since = self.idle_since or now
-            if now - self.idle_since > 1.5:
+            if now - self.idle_since > max(1.5, self.st["caption_hold"]):
                 self.hide_window()
         return GLib.SOURCE_CONTINUE
 
@@ -242,3 +243,43 @@ class Circle:
                 cr.set_source_rgba(*col(1.0), 1)
                 cr.arc(cx, cy, (R + r) / 2, a, a + 1.4)
                 cr.stroke()
+
+        with self.sp.lock:
+            said = self.sp.caption
+        now = time.monotonic()
+        if said:  # keep the last sentence a while after the voice stops
+            self.caption, self.caption_until = said, now + self.st["caption_hold"]
+        elif now > self.caption_until:
+            self.caption = ""
+        if self.caption:
+            # below the circle at its loudest, so the text doesn't bounce with the voice
+            R0 = min(w, h) * 0.2 * self.st["size"] / 100
+            self._caption(cr, self.caption, w, cy + R0 * 1.35 + 16, h - 6, col(1.0))
+
+    def _caption(self, cr, text, w, top, bottom, rgb):
+        """The sentence being said, wrapped and centred under the circle, on a dark backing."""
+        cr.select_font_face("monospace")
+        cr.set_font_size(13)
+        ext = cr.font_extents()
+        lh = ext[2] + 2  # line height
+        lines, line = [], ""
+        for word in text.split():
+            if line and cr.text_extents(line + " " + word).x_advance > w - 36:
+                lines.append(line)
+                line = word
+            else:
+                line = (line + " " + word).strip()
+        lines.append(line)
+        fit = max(1, int((bottom - top) // lh))
+        if len(lines) > fit:  # too long for the space: keep the start, mark the cut
+            lines = lines[:fit]
+            lines[-1] += " …"
+        width = max(cr.text_extents(ln).x_advance for ln in lines)
+        x0, y0 = (w - width) / 2 - 8, top - ext[0] - 4
+        cr.set_source_rgba(0, 0, 0, 0.7)
+        cr.rectangle(x0, y0, width + 16, len(lines) * lh + 8)
+        cr.fill()
+        cr.set_source_rgba(*rgb, 1)
+        for i, ln in enumerate(lines):
+            cr.move_to((w - cr.text_extents(ln).x_advance) / 2, top + i * lh)
+            cr.show_text(ln)
