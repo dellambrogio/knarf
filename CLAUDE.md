@@ -17,7 +17,8 @@ It can also listen: `talk --listen` (Super+\ in sway) records until silence, tra
   compressed), `listener` (hektor-style speech detection + whisper STT),
   `server` (HTTP API + events shared with the UI), `gtk` (GTK imports), `wm/` (window manager: `base.py` is the
   `WindowManager` interface, `sway.py` and `none.py` implement it, `detect()` picks one), `style` (CSS),
-  `tray` (StatusNotifierItem + dbusmenu), `window` (the `Circle` window), `panel` (settings window).
+  `tray` (StatusNotifierItem + dbusmenu), `window` (the `Circle` window), `panel` (settings window), `chat`
+  (standalone mode: talking with Claude directly through `claude -p`, Claude only: no tools).
 - `apps/gui.py`: the program; `bin/knarf` runs it with the Piper venv and `PYTHONPATH` set to the repo.
 - `apps/mcp_server.py` (`bin/knarf-mcp`): the MCP server for Claude Code (speak, listen, stop, status), stdlib only;
   registered with `just mcp`.
@@ -26,7 +27,8 @@ It can also listen: `talk --listen` (Super+\ in sway) records until silence, tra
   mic picking, the PipeWire noise-suppressed "Knarf mic" (`pipewire/`, `just audio-setup`).
 - `bin/talk`: the CLI client.
 
-Knarf is only an extension to Claude Code: it speaks and listens for Claude, it never calls Claude itself.
+Mostly Knarf is an extension to Claude Code: it speaks and listens for Claude. The exception is the standalone
+mode (`knarf/chat.py`, tray "Talk to Claude", `talk --chat`), where Knarf runs `claude -p` itself, with no tools.
 
 ## Talking
 

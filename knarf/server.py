@@ -4,7 +4,8 @@
     POST /stop     stop speaking and clear the queue
     POST /listen   start listening (or stop, if already listening); the text is typed into the focused window
     POST /listen?wait=1   listen and return what was said ({"text": ...}) instead of typing it (MCP `listen`)
-    POST /toggle   show or hide the circle (/show, /hide)
+    POST /chat     start talking with Claude directly (or stop, if already talking): knarf/chat.py
+    POST /toggle   show or hide the window (/show, /hide)
     POST /quit     quit knarf
     GET  /status
 """
@@ -22,7 +23,7 @@ WINDOW_VISIBLE = threading.Event()
 COMMANDS = queue.Queue()  # window commands from the HTTP thread: "toggle" | "show" | "hide"
 
 
-def make_server(speaker, listener):
+def make_server(speaker, listener, chat):
     class Handler(BaseHTTPRequestHandler):
         def log_message(self, *a):
             pass
@@ -38,7 +39,8 @@ def make_server(speaker, listener):
         def do_GET(self):
             if urlparse(self.path).path == "/status":
                 self._reply(200, {"ok": True, "speaking": speaker.busy, "queued": speaker.pending(),
-                                  "listening": listener.state, "window": WINDOW_VISIBLE.is_set()})
+                                  "listening": listener.state, "window": WINDOW_VISIBLE.is_set(),
+                                  "chat": chat.active})
             else:
                 self._reply(404, {"ok": False})
 
@@ -65,6 +67,11 @@ def make_server(speaker, listener):
                     return self._reply(200, {"ok": True, "text": text})
                 listener.toggle()
                 self._reply(200, {"ok": True, "listening": listener.state})
+            elif u.path == "/chat":
+                if not chat.available():
+                    return self._reply(503, {"ok": False, "error": "claude not found"})
+                chat.toggle()
+                self._reply(200, {"ok": True})
             elif u.path == "/stop":
                 speaker.stop()
                 self._reply(200, {"ok": True})

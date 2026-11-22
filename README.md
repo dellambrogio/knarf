@@ -17,6 +17,7 @@ green circle that glows with it). The window is transparent and borderless, so o
     just logs           # follow the service log (just restart after code changes)
     talk "Hello there"  # make it speak (also: echo hi | talk, talk -w, talk --stop, talk --status)
     talk --toggle       # show or hide the window (talk --quit quits Knarf)
+    talk --chat         # talk with Claude directly, until you say you're done (run again to stop)
 
 In the window: click to listen, middle-click stops speaking, right-click or S opens settings, Esc stops speaking,
 Ctrl+Q quits.
@@ -25,8 +26,9 @@ Ctrl+Q quits.
 
 Knarf is one always-running process (a systemd user service) that owns the speaker, the mic, the circle and the
 tray icon. Everything else talks to it over a small HTTP API on `127.0.0.1:47820`: Claude Code through the MCP
-server, you through `talk` (a key binding, the terminal) or the tray icon. Knarf is only an extension to Claude
-Code: it speaks and listens for Claude, it never calls Claude itself.
+server, you through `talk` (a key binding, the terminal) or the tray icon. Mostly Knarf is an extension to Claude
+Code: it speaks and listens for Claude. The one exception is the standalone mode (below), where Knarf asks Claude
+itself.
 
 ```mermaid
 %%{init: {"theme": "base", "themeVariables": {"fontFamily": "monospace", "lineColor": "#22aa55", "edgeLabelBackground": "#000000", "textColor": "#33ff66", "fontSize": "14px"}}}%%
@@ -163,11 +165,24 @@ desktops); `detect()` picks one. Another window manager is one more subclass.
 
 `just mcp` registers Knarf's MCP server (`bin/knarf-mcp`, `apps/mcp_server.py`, standard library only) for all
 projects. Claude then has `speak` (text, wait), `listen` (returns what you said), `stop` and `status`; it starts
-Knarf if it isn't running. Knarf is only an extension to Claude Code: it never talks to Claude by itself.
+Knarf if it isn't running.
 
 [`examples/claude-code/`](examples/claude-code/) has an example on top of that: a `/knarf` skill to work with
 Claude by voice until you say you're done, and a hook that shows the voice traffic in the terminal.
 `just claude-example` installs them.
+
+## Talking with Claude directly (standalone mode)
+
+Without a terminal: pick "Talk to Claude" in the tray menu, or run `talk --chat`. Knarf says hi and listens, sends
+what you said to Claude Code (`claude -p` in your home folder, on your claude.ai login: no API key), and speaks the
+answer a sentence at a time as it streams in. Then it listens again, in the same conversation, until you say you're
+done ("I'm done", "I'm finished", "that's all", "bye"), you stop it the same way you started it, or nobody has said
+anything for about two minutes. While Claude thinks, the window shows the transcribing state.
+
+It's Claude only: no tools and no MCP servers, so it answers from what it knows (it can't look things up, read your
+files or change anything). Claude runs without a terminal here, so nobody could approve a tool anyway.
+The menu item only shows when `claude` is installed (on the PATH or in `~/.local/bin`).
+Ported from hektor's brain: `knarf/chat.py`.
 
 ## Listening, in detail
 

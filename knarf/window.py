@@ -36,8 +36,9 @@ class Circle:
         c.caption, c.caption_until = "", 0.0
         return c
 
-    def __init__(self, gapp, speaker, listener, inbox, settings):
+    def __init__(self, gapp, speaker, listener, inbox, settings, chat):
         self.gapp, self.sp, self.ls, self.inbox, self.st = gapp, speaker, listener, inbox, settings
+        self.chat = chat
         self.level = 0.0
         self.active = 0.0  # eases 0..1 as speech starts/stops
         self.mic = 0.0
@@ -116,7 +117,8 @@ class Circle:
             {"toggle": self.toggle_window, "show": self.show_window, "hide": self.hide_window}[COMMANDS.get_nowait()]()
         while not self.inbox.empty():
             self._deliver(self.inbox.get_nowait())
-        state = self.ls.state if self.ls.state != "idle" else ("speaking" if self.sp.busy else "idle")
+        state = self.ls.state if self.ls.state != "idle" else (
+            "speaking" if self.sp.busy else "thinking" if self.chat.thinking else "idle")
         self.tray.set_state(state)
         if state != "idle":
             self.idle_since = None

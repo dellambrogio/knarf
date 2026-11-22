@@ -119,8 +119,8 @@ class Tray:
 
     PATH, MENU_PATH = "/StatusNotifierItem", "/MenuBar"
     ITEMS = [  # (id, label); label None = separator
-        (1, "Show / hide circle"), (2, "Listen"), (3, "Stop speaking"), (4, None),
-        (5, "Settings…"), (6, None), (8, "Restart knarf"), (7, "Quit knarf"),
+        (1, "Show / hide window"), (2, "Listen"), (3, "Stop speaking"), (9, "Talk to Claude (start / stop)"),
+        (4, None), (5, "Settings…"), (6, None), (8, "Restart knarf"), (7, "Quit knarf"),
     ]
 
     def __init__(self, circle):
@@ -178,6 +178,10 @@ class Tray:
         return {"Version": GLib.Variant("u", 3), "TextDirection": GLib.Variant("s", "ltr"),
                 "Status": GLib.Variant("s", "normal"), "IconThemePath": GLib.Variant("as", [])}.get(prop)
 
+    def _items(self):
+        """The menu: "Talk to Claude" only when Claude Code is installed."""
+        return [(i, lb) for i, lb in self.ITEMS if i != 9 or self.circle.chat.available()]
+
     def _item_props(self, label):
         if label is None:
             return {"type": GLib.Variant("s", "separator")}
@@ -186,12 +190,12 @@ class Tray:
 
     def _menu_call(self, bus, sender, path, iface, method, params, inv):
         if method == "GetLayout":
-            kids = [GLib.Variant("(ia{sv}av)", (i, self._item_props(lb), [])) for i, lb in self.ITEMS]
+            kids = [GLib.Variant("(ia{sv}av)", (i, self._item_props(lb), [])) for i, lb in self._items()]
             root = (0, {"children-display": GLib.Variant("s", "submenu")}, kids)
             inv.return_value(GLib.Variant("(u(ia{sv}av))", (1, root)))
         elif method == "GetGroupProperties":
             ids = params.unpack()[0]
-            props = [(i, self._item_props(lb)) for i, lb in self.ITEMS if not ids or i in ids]
+            props = [(i, self._item_props(lb)) for i, lb in self._items() if not ids or i in ids]
             inv.return_value(GLib.Variant("(a(ia{sv}))", (props,)))
         elif method == "GetProperty":
             i, name = params.unpack()
@@ -217,5 +221,5 @@ class Tray:
     def _menu_action(self, i):
         c = self.circle
         {1: c.toggle_window, 2: c.ls.toggle, 3: c.sp.stop, 5: c.open_settings, 7: c.gapp.quit,
-         8: c.restart}.get(i, lambda: None)()
+         8: c.restart, 9: c.chat.toggle}.get(i, lambda: None)()
         return False

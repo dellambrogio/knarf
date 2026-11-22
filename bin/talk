@@ -9,6 +9,7 @@
 #   talk --quit             quit knarf (the systemd service keeps it running otherwise)
 #   talk --listen           listen to the mic and type what you say into the focused window
 #                           (run again while listening to stop early)
+#   talk --chat             talk with Claude directly, until you say you're done (run again to stop)
 # If the knarf window isn't running, falls back to the plain `say` script.
 URL="http://127.0.0.1:${KNARF_PORT:-47820}"
 WAIT=0
@@ -16,6 +17,7 @@ case "$1" in
   --stop)   exec curl -fsS -X POST "$URL/stop" >/dev/null ;;
   --listen) exec curl -fsS -X POST "$URL/listen" >/dev/null ;;
   --quit)   exec curl -fsS -X POST "$URL/quit" >/dev/null ;;
+  --chat)   exec curl -fsS -X POST "$URL/chat" >/dev/null ;;
   --toggle)
     if curl -fsS -m 1 "$URL/status" >/dev/null 2>&1; then exec curl -fsS -X POST "$URL/toggle" >/dev/null
     elif systemctl --user cat knarf.service >/dev/null 2>&1; then exec systemctl --user start knarf.service
