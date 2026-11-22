@@ -79,6 +79,27 @@ mcp:
     -claude mcp remove --scope user knarf >/dev/null 2>&1
     claude mcp add --scope user knarf -- {{justfile_directory()}}/bin/knarf-mcp
 
+# optional, for Claude Code: the /knarf voice skill and the hook that shows the voice traffic in the terminal
+# (examples/claude-code; keeps files you already have, adds the hooks to settings.json once)
+claude-example claude_dir=(env("HOME") / ".claude"):
+    #!/usr/bin/env bash
+    set -euo pipefail
+    src={{justfile_directory()}}/examples/claude-code
+    dir={{claude_dir}}
+    mkdir -p "$dir/skills" "$dir/hooks"
+    if [ -e "$dir/skills/knarf" ]; then echo "kept: $dir/skills/knarf"; else cp -r "$src/skills/knarf" "$dir/skills/"; fi
+    if [ -e "$dir/hooks/knarf-echo.sh" ]; then echo "kept: $dir/hooks/knarf-echo.sh"; else cp "$src/hooks/knarf-echo.sh" "$dir/hooks/"; fi
+    f="$dir/settings.json"
+    [ -s "$f" ] || echo '{}' > "$f"
+    if jq -e '[.hooks // {} | .[] | .[] | .hooks[]? | .command] | any(contains("knarf-echo.sh"))' "$f" >/dev/null; then
+        echo "kept: the knarf hooks are already in $f"
+    else
+        merged=$(jq -s '.[1].hooks as $new | .[0] | .hooks = (reduce ($new | keys[]) as $k (.hooks // {}; .[$k] = ((.[$k] // []) + $new[$k])))' "$f" "$src/settings.json")
+        printf '%s\n' "$merged" > "$f"  # written in place: a symlinked settings.json stays a symlink
+        echo "added the knarf hooks to $f"
+    fi
+    echo "start a new Claude Code session, then /knarf"
+
 # noise suppression for listening: adds the "knarf mic" to PipeWire (restarts PipeWire: audio stops a moment)
 audio-setup:
     mkdir -p {{pw_dir}}

@@ -6,6 +6,7 @@ import subprocess
 import sys
 import threading
 import time
+import types
 
 import numpy as np
 
@@ -21,6 +22,19 @@ from .tray import Tray
 class Circle:
     """A borderless, transparent window: only the circle shows. It breathes when idle,
     swells with the voice, and turns into a ring while listening."""
+
+    @classmethod
+    def offscreen(cls, settings, state="idle", level=0.0, active=0.0, mic=0.0, t=0.0):
+        """A Circle with no window, for drawing frames with `_draw` (docs screenshots, the demo video).
+        Set level, active, mic, ls.state and t0 on it between frames."""
+        c = cls.__new__(cls)
+        c.st = settings
+        c.level, c.active, c.mic = level, active, mic
+        c.t0 = time.monotonic() - t
+        c.ls = types.SimpleNamespace(state=state)
+        c.sp = types.SimpleNamespace(lock=threading.Lock(), caption="")  # captions are drawn by the caller
+        c.caption, c.caption_until = "", 0.0
+        return c
 
     def __init__(self, gapp, speaker, listener, inbox, settings):
         self.gapp, self.sp, self.ls, self.inbox, self.st = gapp, speaker, listener, inbox, settings

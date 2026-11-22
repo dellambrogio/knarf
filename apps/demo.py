@@ -120,7 +120,7 @@ def main(out):
          "-i", str(wav), "-c:v", "libx264", "-pix_fmt", "yuv420p", "-crf", "20",
          "-c:a", "aac", "-b:a", "128k", "-shortest", "-movflags", "+faststart", out],
         stdin=subprocess.PIPE)
-    fake = types.SimpleNamespace(level=0.0, active=0.0, mic=0.0, st=st, ls=types.SimpleNamespace(state="idle"))
+    fake = Circle.offscreen(dict(st.data, style="circle"))
     surf = cairo.ImageSurface(cairo.FORMAT_ARGB32, W, H)
     k = 60 / FPS  # the app smooths at 60 fps
     for n in range(int(math.ceil(duration * FPS))):

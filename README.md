@@ -164,6 +164,10 @@ desktops); `detect()` picks one. Another window manager is one more subclass.
 projects. Claude then has `speak` (text, wait), `listen` (returns what you said), `stop` and `status`; it starts
 Knarf if it isn't running. Knarf is only an extension to Claude Code: it never talks to Claude by itself.
 
+[`examples/claude-code/`](examples/claude-code/) has an example on top of that: a `/knarf` skill to work with
+Claude by voice until you say you're done, and a hook that shows the voice traffic in the terminal.
+`just claude-example` installs them.
+
 ## Listening, in detail
 
 Ported from [hektor](https://github.com/dellambrogio/hektor): a 100 ms chunk counts as talking only when it's loud (over the room's noise x 2.5, measured

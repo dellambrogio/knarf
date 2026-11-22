@@ -1,0 +1,26 @@
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "mcp__knarf__speak",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "~/.claude/hooks/knarf-echo.sh 2>/dev/null || true"
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "mcp__knarf__listen",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "~/.claude/hooks/knarf-echo.sh 2>/dev/null || true"
+          }
+        ]
+      }
+    ]
+  }
+}

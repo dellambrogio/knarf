@@ -4,8 +4,6 @@ into an image, so nothing on the desktop shows through. Run with `just screensho
 docs/settings.png is a capture of the real settings window."""
 
 import sys
-import time
-import types
 from pathlib import Path
 
 from knarf.config import Settings
@@ -29,8 +27,7 @@ def main(path: str) -> None:
     cr.set_source_rgb(0, 0, 0)
     cr.paint()
     for i, (label, state, level, active, mic) in enumerate(STATES):
-        fake = types.SimpleNamespace(level=level, active=active, mic=mic, st=st,
-                                     ls=types.SimpleNamespace(state=state), t0=time.monotonic() - 1.3)
+        fake = Circle.offscreen(dict(st.data, style="circle"), state, level, active, mic, t=1.3)
         tile = cairo.ImageSurface(cairo.FORMAT_ARGB32, W, H)
         Circle._draw(fake, None, cairo.Context(tile), W, H)
         cr.set_source_surface(tile, i * W, 0)
