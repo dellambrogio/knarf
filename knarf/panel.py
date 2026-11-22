@@ -1,6 +1,6 @@
 """The settings window: every change applies immediately and is saved."""
 
-from .config import COLORS, LANGUAGES, STT_MODELS, voice_label, voices
+from .config import COLORS, LANGUAGES, POSITIONS, STYLES, STT_MODELS, voice_label, voices
 from .gtk import Gdk, GLib, Gtk
 from .style import apply_css
 
@@ -40,12 +40,13 @@ class SettingsPanel:
             grid.attach(sc, 1, row, 1, 1)
             row += 1
 
-        def choice(key, text, options, show=str):
+        def choice(key, text, options, show=str, apply=None):
             nonlocal row
             label(text)
             dd = Gtk.DropDown.new_from_strings([show(o) for o in options])
             dd.set_selected(options.index(st[key]) if st[key] in options else 0)
-            dd.connect("notify::selected", lambda d, _p: st.set(key, options[d.get_selected()]))
+            dd.connect("notify::selected",
+                       lambda d, _p: (st.set(key, options[d.get_selected()]), apply and apply()))
             grid.attach(dd, 1, row, 1, 1)
             row += 1
 
@@ -60,7 +61,8 @@ class SettingsPanel:
         slider("speed", "Speed %", 50, 200, 5)
         slider("volume", "Volume %", 0, 100, 5)
         slider("pause", "Pause between sentences (s)", 0, 1.5, 0.05, float)
-        slider("size", "Circle size %", 40, 180, 5)
+        choice("style", "Style", STYLES, str.capitalize)
+        slider("size", "Size %", 40, 180, 5)
         slider("caption_hold", "Text stays after speaking (s)", 0, 10, 0.5, float)
         choice("voice", "Voice", sorted(voices(), key=voice_label) or [st["voice"]], voice_label)
         choice("language", "Listen: language", LANGUAGES)
@@ -84,6 +86,7 @@ class SettingsPanel:
         row += 1
         self._mark(st["color"])
 
+        choice("position", "Position", POSITIONS, lambda p: p.replace("-", " ").capitalize(), circle.place)
         check("popup", "Pop up while speaking or listening")
         check("sticky", "Show on all workspaces", circle.wm.set_sticky)
 

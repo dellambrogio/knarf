@@ -30,5 +30,10 @@ class WindowManager(ABC):
         """Show Knarf's windows on all workspaces, or only on one."""
 
     @abstractmethod
+    def place_window(self, position: str, width: int, height: int) -> None:
+        """Move the circle (a `width` x `height` window) to `position` on the focused screen: "center",
+        "top", "bottom", or a corner like "bottom-right" (config.POSITIONS)."""
+
+    @abstractmethod
     def center_window(self, title: str, width: int, height: int) -> None:
         """Float the Knarf window called `title` at this size in the middle of the screen."""

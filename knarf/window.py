@@ -66,10 +66,15 @@ class Circle:
         prev = self.wm.focused_window() if auto else None
         self.win.present()
         WINDOW_VISIBLE.set()
+        GLib.timeout_add(100, lambda: self.place() and False)
         if prev is not None:
             GLib.timeout_add(150, lambda: self.wm.focus_window(prev) and False)
         if self.st["sticky"]:
             GLib.timeout_add(200, lambda: self.wm.set_sticky(True) and False)
+
+    def place(self):
+        """Put the circle where the settings say (on the screen you're on)."""
+        self.wm.place_window(self.st["position"], self.win.get_width() or 360, self.win.get_height() or 360)
 
     def hide_window(self):
         self.auto_shown = False
@@ -195,11 +200,59 @@ class Circle:
 
         t = time.monotonic() - self.t0
         rgb = [c / 255 for c in COLORS[self.st["color"]]]
+        R0 = min(w, h) * 0.2 * self.st["size"] / 100  # the circle's resting radius; the bars fit in it too
+        (self._draw_bars if self.st["style"] == "bars" else self._draw_circle)(cr, w, h, t, rgb, R0)
+
+        with self.sp.lock:
+            said = self.sp.caption
+        now = time.monotonic()
+        if said:  # keep the last sentence a while after the voice stops
+            self.caption, self.caption_until = said, now + self.st["caption_hold"]
+        elif now > self.caption_until:
+            self.caption = ""
+        if self.caption:
+            # below the circle at its loudest, so the text doesn't bounce with the voice
+            self._caption(cr, self.caption, w, h / 2 + R0 * 1.35 + 16, h - 6, rgb)
+
+    def _draw_bars(self, cr, w, h, t, rgb, R0):
+        """Three columns of light segments, lit from the middle outwards as the voice gets
+        louder, the middle column the most. Dim and still when idle; the mic level lights them while
+        listening, and a light runs up and down while thinking."""
+        cx, cy = w / 2, h / 2
+        state = self.ls.state
+        n = 15                                   # segments per column (odd: one sits on the middle line)
+        H = R0 * 2.3                             # the columns' height
+        seg = H / n
+        cw = R0 * 0.36                           # a column's width
+        gap = cw * 0.45
+
+        if state == "listening":
+            amount, k = self.mic, 0.7
+        elif state == "thinking":
+            amount, k = 0.0, 0.7
+        else:
+            amount, k = self.level, 1.0
+        half = n // 2
+        scan = (math.sin(t * 4) * 0.5 + 0.5) * (n - 1)  # thinking: a light running up and down
+        for c, share in ((-1, 0.65), (0, 1.0), (1, 0.65)):  # the side columns light up less
+            x = cx + c * (cw + gap) - cw / 2
+            lit = amount * share * (half + 1)  # segments lit on each side of the middle
+            for i in range(n):
+                d = abs(i - half)  # distance from the middle line
+                on = max(0.0, min(1.0, lit - d))  # partly lit at the edge, so it moves smoothly
+                if state == "thinking" and c == 0:
+                    on = max(0.0, 1 - abs(i - scan))
+                b = 0.12 + 0.88 * on * k
+                cr.set_source_rgba(*[min(1.0, v * b) for v in rgb], 1)
+                cr.rectangle(x, cy - H / 2 + i * seg + seg * 0.12, cw, seg * 0.76)
+                cr.fill()
+
+    def _draw_circle(self, cr, w, h, t, rgb, R0):
         cx, cy = w / 2, h / 2
         lvl = self.level
         breathe = 0.5 + 0.5 * math.sin(t * 1.2)
         # leave room for the glow inside the window
-        R = min(w, h) * 0.2 * self.st["size"] / 100 * (1 + 0.03 * breathe + 0.18 * lvl + 0.12 * self.mic)
+        R = R0 * (1 + 0.03 * breathe + 0.18 * lvl + 0.12 * self.mic)
         bright = 0.45 + 0.1 * breathe * (1 - self.active) + 0.3 * self.active + 0.25 * lvl
         state = self.ls.state
 
@@ -244,17 +297,6 @@ class Circle:
                 cr.arc(cx, cy, (R + r) / 2, a, a + 1.4)
                 cr.stroke()
 
-        with self.sp.lock:
-            said = self.sp.caption
-        now = time.monotonic()
-        if said:  # keep the last sentence a while after the voice stops
-            self.caption, self.caption_until = said, now + self.st["caption_hold"]
-        elif now > self.caption_until:
-            self.caption = ""
-        if self.caption:
-            # below the circle at its loudest, so the text doesn't bounce with the voice
-            R0 = min(w, h) * 0.2 * self.st["size"] / 100
-            self._caption(cr, self.caption, w, cy + R0 * 1.35 + 16, h - 6, col(1.0))
 
     def _caption(self, cr, text, w, top, bottom, rgb):
         """The sentence being said, wrapped and centred under the circle, on a dark backing."""

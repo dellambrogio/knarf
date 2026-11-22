@@ -36,6 +36,27 @@ class Sway(WindowManager):
     def set_sticky(self, on: bool) -> None:
         self._run(f'[app_id="^{self.app_id}$"] sticky {"enable" if on else "disable"}')
 
+    def place_window(self, position: str, width: int, height: int) -> None:
+        # the focused workspace's area, which leaves out bars like waybar
+        try:
+            spaces = json.loads(subprocess.run(["swaymsg", "-t", "get_workspaces", "-r"], capture_output=True,
+                                               timeout=1).stdout)
+            r = next(w["rect"] for w in spaces if w.get("focused"))
+        except (OSError, ValueError, StopIteration, KeyError, subprocess.TimeoutExpired):
+            return
+        margin = 10
+        x = r["x"] + (r["width"] - width) // 2
+        y = r["y"] + (r["height"] - height) // 2
+        if "left" in position:
+            x = r["x"] + margin
+        if "right" in position:
+            x = r["x"] + r["width"] - width - margin
+        if position.startswith("top"):
+            y = r["y"] + margin
+        if position.startswith("bottom"):
+            y = r["y"] + r["height"] - height - margin
+        self._run(f'[app_id="^{self.app_id}$" title="^knarf$"] move absolute position {x} {y}')
+
     def center_window(self, title: str, width: int, height: int) -> None:
         # the rule for the circle (app_id knarf) also catches other Knarf windows: put this one back
         crit = f'[app_id="^{self.app_id}$" title="^{title}$"]'

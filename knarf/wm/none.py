@@ -15,5 +15,8 @@ class NoWindowManager(WindowManager):
     def set_sticky(self, on: bool) -> None:
         pass
 
+    def place_window(self, position: str, width: int, height: int) -> None:
+        pass
+
     def center_window(self, title: str, width: int, height: int) -> None:
         pass
