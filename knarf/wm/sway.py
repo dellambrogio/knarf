@@ -2,6 +2,8 @@
 
 import json
 import subprocess
+import threading
+import time
 
 from .base import WindowManager
 
@@ -35,6 +37,38 @@ class Sway(WindowManager):
 
     def set_sticky(self, on: bool) -> None:
         self._run(f'[app_id="^{self.app_id}$"] sticky {"enable" if on else "disable"}')
+
+    def on_workspace_change(self, callback) -> None:
+        def watch():  # swaymsg prints one JSON event per line; restarted if it goes away (sway reloaded, ...)
+            while True:
+                try:
+                    with subprocess.Popen(["swaymsg", "-t", "subscribe", "-m", '["workspace"]'],
+                                          stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, text=True) as p:
+                        for line in p.stdout:
+                            try:
+                                if json.loads(line).get("change") == "focus":
+                                    callback()
+                            except ValueError:
+                                pass
+                except OSError:
+                    pass
+                time.sleep(2)
+
+        threading.Thread(target=watch, daemon=True).start()
+
+    def _focused_workspace(self) -> str | None:
+        try:
+            spaces = json.loads(subprocess.run(["swaymsg", "-t", "get_workspaces", "-r"], capture_output=True,
+                                               timeout=1).stdout)
+            return next(w["name"] for w in spaces if w.get("focused"))
+        except (OSError, ValueError, StopIteration, KeyError, subprocess.TimeoutExpired):
+            return None
+
+    def move_to_current_workspace(self) -> None:
+        name = self._focused_workspace()
+        if name is not None:
+            name = name.replace("\\", "\\\\").replace('"', '\\"')
+            self._run(f'[app_id="^{self.app_id}$" title="^knarf$"] move container to workspace "{name}"')
 
     def place_window(self, position: str, width: int, height: int) -> None:
         # the focused workspace's area, which leaves out bars like waybar

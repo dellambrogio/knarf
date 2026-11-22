@@ -29,6 +29,12 @@ class WindowManager(ABC):
     def set_sticky(self, on: bool) -> None:
         """Show Knarf's windows on all workspaces, or only on one."""
 
+    def on_workspace_change(self, callback) -> None:
+        """Call `callback()` (from another thread) whenever you switch to another workspace. Default: never."""
+
+    def move_to_current_workspace(self) -> None:
+        """Move the circle to the workspace you're on, so it follows you while it's up. Default: nothing."""
+
     @abstractmethod
     def place_window(self, position: str, width: int, height: int) -> None:
         """Move the circle (a `width` x `height` window) to `position` on the focused screen: "center",

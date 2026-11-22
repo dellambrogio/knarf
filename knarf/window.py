@@ -71,6 +71,7 @@ class Circle:
         self.area.add_tick_callback(self._tick)
         self.tray = Tray(self)
         GLib.timeout_add(50, self._control)  # runs even while the window is hidden
+        self.wm.on_workspace_change(lambda: GLib.idle_add(self._follow_workspace))
 
     # --- showing and hiding ------------------------------------------------------
     def show_window(self, auto=False):
@@ -90,6 +91,13 @@ class Circle:
     def place(self):
         """Put the circle where the settings say (on the screen you're on)."""
         self.wm.place_window(self.st["position"], self.win.get_width() or 360, self.win.get_height() or 360)
+
+    def _follow_workspace(self):
+        """You switched workspace: bring the circle along (unless it's on all of them already)."""
+        if self.win.get_visible() and not self.st["sticky"]:
+            self.wm.move_to_current_workspace()
+            GLib.timeout_add(100, lambda: self.place() and False)
+        return GLib.SOURCE_REMOVE
 
     def hide_window(self):
         self.auto_shown = False
