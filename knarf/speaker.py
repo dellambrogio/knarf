@@ -17,7 +17,7 @@ import wave
 import numpy as np
 from piper import PiperVoice, SynthesisConfig
 
-from .config import BASE_LENGTH, PLAYER_LATENCY
+from .config import BASE_LENGTH, PIPER_DIR, PLAYER_LATENCY, voices
 
 # evens out loud and soft syllables so the voice carries on small speakers; then it's brought to full level
 COMPRESS = "acompressor=threshold=-26dB:ratio=4:attack=4:release=80:makeup=2"
@@ -53,6 +53,7 @@ class Speaker:
         self.settings = settings
         self.voice_path = settings.voice_path()
         self.voice = PiperVoice.load(self.voice_path)
+        self.extra_voices = {}  # voices asked for per text (say(voice=...)), loaded once
         self.q = queue.Queue()
         self.lock = threading.Lock()
         self.generation = 0  # bumped on stop; stale work is dropped
@@ -67,8 +68,22 @@ class Speaker:
         # the first sentence shouldn't wait for piper and ffmpeg to warm up
         threading.Thread(target=lambda: self._make("Hello."), daemon=True).start()
 
-    def say(self, text, done=None):
-        self.q.put((self.generation, text, done))
+    def say(self, text, done=None, voice=None, speed=None):
+        """Queue `text`. `voice` (a voice file name, or part of it like "joe") and `speed` (percent) override
+        the settings for this text only."""
+        self.q.put((self.generation, text, done, (voice, speed)))
+
+    def _voice_for(self, name):
+        """The loaded voice for `name` ("en_US-joe-medium.onnx", "joe", ...), or None for the settings one."""
+        if not name:
+            return None
+        match = next((v for v in voices() if v == name or name.lower() in v.lower()), None)
+        if match is None:
+            print(f"knarf: no voice matches {name!r}, using the settings one", flush=True)
+            return None
+        if match not in self.extra_voices:
+            self.extra_voices[match] = PiperVoice.load(os.path.join(PIPER_DIR, match))
+        return self.extra_voices[match]
 
     def stop(self):
         with self.lock:
@@ -76,7 +91,7 @@ class Speaker:
             p = self.proc
         while True:
             try:
-                _, _, done = self.q.get_nowait()
+                _, _, done, _ = self.q.get_nowait()
                 if done:
                     done.set()
             except queue.Empty:
@@ -89,11 +104,11 @@ class Speaker:
 
     def _run(self):
         while True:
-            gen, text, done = self.q.get()
+            gen, text, done, (voice, speed) = self.q.get()
             try:
                 if gen == self.generation:
                     self.busy = True
-                    self._speak(gen, text)
+                    self._speak(gen, text, voice, speed)
             except Exception as e:  # keep the worker alive no matter what
                 print("knarf: speak failed:", e, flush=True)
             finally:
@@ -104,18 +119,19 @@ class Speaker:
                 if done:
                     done.set()
 
-    def _speak(self, gen, text):
+    def _speak(self, gen, text, voice=None, speed=None):
         st = self.settings
         if st.voice_path() != self.voice_path:  # voice changed in settings
             self.voice_path = st.voice_path()
             self.voice = PiperVoice.load(self.voice_path)
+        voice = self._voice_for(voice)
         ready = queue.Queue(maxsize=2)  # made sentences, waiting to be played
 
         def make():  # runs ahead of the playback, by up to two sentences
             for sentence in sentences(text):
                 if gen != self.generation:
                     break
-                ready.put((sentence, *self._make(sentence)))
+                ready.put((sentence, *self._make(sentence, voice, speed)))
             ready.put(None)
 
         threading.Thread(target=make, daemon=True).start()
@@ -129,12 +145,14 @@ class Speaker:
             first = False
             self._play(gen, audio, rate, sentence)
 
-    def _make(self, sentence):
-        """`sentence` as float32 samples, compressed and normalized, and its sample rate."""
+    def _make(self, sentence, voice=None, speed=None):
+        """`sentence` as float32 samples, compressed and normalized, and its sample rate. `voice` (a loaded
+        PiperVoice) and `speed` (percent) default to the settings."""
         st = self.settings
-        cfg = SynthesisConfig(length_scale=BASE_LENGTH * 100 / max(10, st["speed"]))
-        pcm, rate = b"", self.voice.config.sample_rate
-        for chunk in self.voice.synthesize(sentence, syn_config=cfg):
+        voice = voice or self.voice
+        cfg = SynthesisConfig(length_scale=BASE_LENGTH * 100 / max(10, speed or st["speed"]))
+        pcm, rate = b"", voice.config.sample_rate
+        for chunk in voice.synthesize(sentence, syn_config=cfg):
             pcm += chunk.audio_int16_bytes
             rate = chunk.sample_rate
         fmt = ["-f", "s16le", "-ar", str(rate), "-ac", "1"]

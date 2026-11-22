@@ -12,6 +12,7 @@ import subprocess
 import sys
 import time
 import urllib.error
+import urllib.parse
 import urllib.request
 
 URL = f"http://127.0.0.1:{os.environ.get('KNARF_PORT', '47820')}"
@@ -43,6 +44,13 @@ TOOLS = [
                 "wait": {"type": "boolean", "default": False,
                          "description": ("Return only once it has been spoken. Not needed before `listen`, "
                                          "which waits for speaking to finish.")},
+                "voice": {"type": "string",
+                          "description": ("Optional: another installed voice for this text only, by name "
+                                          "(e.g. 'joe', 'alan', 'amy', 'jenny', 'ryan', 'lessac'), for example to "
+                                          "give two characters different voices. Default: the user's voice.")},
+                "speed": {"type": "number",
+                          "description": ("Optional: speaking speed in percent for this text only (e.g. 85 is "
+                                          "slower). Default: the user's setting.")},
             },
             "required": ["text"],
         },
@@ -128,7 +136,13 @@ def run_tool(name: str, args: dict) -> str:
         if not text:
             raise ValueError("nothing to say")
         wait = bool(args.get("wait"))
-        call("POST", "/say?wait=1" if wait else "/say", text.encode(), timeout=600 if wait else 10)
+        query = {"wait": "1"} if wait else {}
+        if args.get("voice"):
+            query["voice"] = str(args["voice"])
+        if args.get("speed"):
+            query["speed"] = str(float(args["speed"]))
+        path = "/say" + ("?" + urllib.parse.urlencode(query) if query else "")
+        call("POST", path, text.encode(), timeout=600 if wait else 10)
         return "Spoken." if wait else "Speaking."
     if name == "listen":
         timeout = float(args.get("timeout") or 120)
