@@ -158,7 +158,8 @@ the next login (or `systemctl --user start knarf`).
 Code: the `knarf/` package (config, audio, speaker, listener, server, gtk, wm, style, tray, window, panel) and the
 program in `apps/gui.py`, started by `bin/knarf`. `knarf/wm/` is what Knarf asks of the window manager on Wayland
 (where an app can't place its own windows, keep them out of the focus or show them on every workspace): the
-`WindowManager` interface in `base.py`, with `sway.py` (through `swaymsg`) and `none.py` (does nothing, for other
+`WindowManager` interface in `base.py`, with `i3.py` (through `i3-msg`), `sway.py` (the same IPC through `swaymsg`)
+and `none.py` (does nothing, for other
 desktops); `detect()` picks one. Another window manager is one more subclass.
 
 ## For Claude Code (MCP)

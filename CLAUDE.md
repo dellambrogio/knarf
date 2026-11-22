@@ -16,7 +16,7 @@ It can also listen: `talk --listen` (Super+\ in sway) records until silence, tra
 - `knarf/`: the package. `config` (paths, constants, Settings, listening tuning), `speaker` (Piper TTS, pipelined,
   compressed), `listener` (hektor-style speech detection + whisper STT),
   `server` (HTTP API + events shared with the UI), `gtk` (GTK imports), `wm/` (window manager: `base.py` is the
-  `WindowManager` interface, `sway.py` and `none.py` implement it, `detect()` picks one), `style` (CSS),
+  `WindowManager` interface, `i3.py`, `sway.py` (a subclass: same IPC) and `none.py` implement it, `detect()` picks one), `style` (CSS),
   `tray` (StatusNotifierItem + dbusmenu), `window` (the `Circle` window), `panel` (settings window), `chat`
   (standalone mode: talking with Claude directly through `claude -p`, Claude only: no tools).
 - `apps/gui.py`: the program; `bin/knarf` runs it with the Piper venv and `PYTHONPATH` set to the repo.

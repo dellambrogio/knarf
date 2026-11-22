@@ -99,7 +99,7 @@ class SettingsPanel:
             bar.append(b)
         grid.attach(bar, 0, row, 2, 1)
         win.present()
-        # The circle's sway rule (app_id knarf) also matches this window and would put it in the
+        # A rule for the circle in the sway/i3 config (app_id/instance knarf) also matches this window and would put it in the
         # corner at the circle's size: put it back at its natural size, in the middle of the screen.
         GLib.timeout_add(100, self._center)
 
